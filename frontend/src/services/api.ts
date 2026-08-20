@@ -26,6 +26,25 @@ async function fetchJSON<T>(endpoint: string, options?: RequestInit): Promise<T>
   return getFallbackData<T>(endpoint, options);
 }
 
+// Generate deterministic rich pool of sample customers
+const SAMPLE_CUSTOMER_POOL: PredictionResult[] = [
+  generateSamplePrediction(10293, 45, 'Female', 12, 6, 8, 22, 'Standard', 'Monthly', 720, 25),
+  generateSamplePrediction(10482, 52, 'Male', 8, 4, 9, 25, 'Basic', 'Monthly', 890, 28),
+  generateSamplePrediction(11029, 39, 'Female', 14, 7, 7, 19, 'Premium', 'Monthly', 610, 20),
+  generateSamplePrediction(12394, 61, 'Male', 5, 5, 10, 28, 'Standard', 'Monthly', 950, 29),
+  generateSamplePrediction(13481, 48, 'Female', 10, 8, 6, 17, 'Basic', 'Quarterly', 540, 22),
+  generateSamplePrediction(14920, 33, 'Male', 24, 18, 2, 3, 'Premium', 'Annual', 820, 10),
+  generateSamplePrediction(15830, 29, 'Female', 36, 22, 1, 0, 'Standard', 'Annual', 980, 5),
+  generateSamplePrediction(16201, 41, 'Male', 18, 12, 5, 14, 'Basic', 'Monthly', 670, 15),
+  generateSamplePrediction(17440, 55, 'Female', 6, 5, 8, 21, 'Premium', 'Monthly', 790, 26),
+  generateSamplePrediction(18290, 37, 'Male', 15, 9, 6, 16, 'Standard', 'Quarterly', 580, 18),
+  generateSamplePrediction(19041, 44, 'Female', 30, 20, 2, 2, 'Premium', 'Annual', 910, 8),
+  generateSamplePrediction(20119, 50, 'Male', 11, 7, 7, 20, 'Basic', 'Monthly', 620, 23),
+  generateSamplePrediction(21580, 28, 'Female', 42, 25, 0, 1, 'Standard', 'Annual', 840, 4),
+  generateSamplePrediction(22901, 63, 'Male', 4, 3, 9, 27, 'Premium', 'Monthly', 990, 30),
+  generateSamplePrediction(23410, 36, 'Female', 20, 14, 3, 5, 'Basic', 'Quarterly', 490, 12)
+];
+
 function getFallbackData<T>(endpoint: string, options?: RequestInit): T {
   if (endpoint.includes('/dashboard/summary')) {
     return {
@@ -61,34 +80,33 @@ function getFallbackData<T>(endpoint: string, options?: RequestInit): T {
         { subscription: 'Standard', total: 21502, churned: 10100, churn_rate: 47.0 },
         { subscription: 'Premium', total: 21421, churned: 9893, churn_rate: 46.2 }
       ],
-      immediate_attention: [
-        generateSamplePrediction(10293, 45, 'Female', 12, 6, 8, 22, 'Standard', 'Monthly', 720, 25),
-        generateSamplePrediction(10482, 52, 'Male', 8, 4, 9, 25, 'Basic', 'Monthly', 890, 28),
-        generateSamplePrediction(11029, 39, 'Female', 14, 7, 7, 19, 'Premium', 'Monthly', 610, 20),
-        generateSamplePrediction(12394, 61, 'Male', 5, 5, 10, 28, 'Standard', 'Monthly', 950, 29),
-        generateSamplePrediction(13481, 48, 'Female', 10, 8, 6, 17, 'Basic', 'Quarterly', 540, 22)
-      ]
+      immediate_attention: SAMPLE_CUSTOMER_POOL.filter(c => c.risk_level === 'HIGH').slice(0, 5)
     } as unknown as T;
   }
 
-  if (endpoint.includes('/customers?')) {
-    const list = [
-      generateSamplePrediction(10293, 45, 'Female', 12, 6, 8, 22, 'Standard', 'Monthly', 720, 25),
-      generateSamplePrediction(10482, 52, 'Male', 8, 4, 9, 25, 'Basic', 'Monthly', 890, 28),
-      generateSamplePrediction(11029, 39, 'Female', 14, 7, 7, 19, 'Premium', 'Monthly', 610, 20),
-      generateSamplePrediction(12394, 61, 'Male', 5, 5, 10, 28, 'Standard', 'Monthly', 950, 29),
-      generateSamplePrediction(13481, 48, 'Female', 10, 8, 6, 17, 'Basic', 'Quarterly', 540, 22),
-      generateSamplePrediction(14920, 33, 'Male', 24, 18, 2, 3, 'Premium', 'Annual', 820, 10),
-      generateSamplePrediction(15830, 29, 'Female', 36, 22, 1, 0, 'Standard', 'Annual', 980, 5)
-    ];
-    return { total_count: 64374, page: 1, limit: 15, customers: list } as unknown as T;
-  }
+  if (endpoint.includes('/customers')) {
+    let filtered = [...SAMPLE_CUSTOMER_POOL];
+    const urlObj = new URL('http://dummy.com' + endpoint);
+    const riskFilter = urlObj.searchParams.get('risk_filter');
+    const contractFilter = urlObj.searchParams.get('contract_filter');
+    const search = urlObj.searchParams.get('search');
+    const hvhr = urlObj.searchParams.get('high_value_high_risk');
 
-  if (endpoint.includes('/customers/')) {
-    const idStr = endpoint.split('/customers/')[1];
-    const id = parseInt(idStr) || 10293;
-    const sample = generateSamplePrediction(id, 45, 'Female', 12, 6, 8, 22, 'Standard', 'Monthly', 720, 25);
-    return { raw_attributes: { CustomerID: id, Age: 45, Gender: 'Female', Tenure: 12, 'Usage Frequency': 6, 'Support Calls': 8, 'Payment Delay': 22, 'Subscription Type': 'Standard', 'Contract Length': 'Monthly', 'Total Spend': 720, 'Last Interaction': 25 }, intelligence: sample } as unknown as T;
+    if (riskFilter && riskFilter !== 'All') {
+      filtered = filtered.filter(c => c.risk_level === riskFilter);
+    }
+    if (contractFilter && contractFilter !== 'All') {
+      filtered = filtered.filter(c => c.Contract_Length === contractFilter);
+    }
+    if (search) {
+      filtered = filtered.filter(c => c.customer_id.toString().includes(search));
+    }
+    if (hvhr === 'true') {
+      filtered = filtered.filter(c => c.priority_label === 'CRITICAL' || (c.risk_level === 'HIGH' && (c.Total_Spend || 0) >= 500));
+    }
+
+    filtered.sort((a, b) => b.churn_probability - a.churn_probability);
+    return { total_count: filtered.length, page: 1, limit: 15, customers: filtered } as unknown as T;
   }
 
   if (endpoint.includes('/analytics/churn')) {
@@ -247,7 +265,16 @@ function generateSamplePrediction(id: number, age: number, gender: string, tenur
     risk_drivers: drivers,
     suggested_owner: (priority_label === 'CRITICAL' || priority_label === 'HIGH') ? 'Customer Success Manager' : 'Support Operations',
     model_version: 'Random Forest',
-    Total_Spend: spend
+    Total_Spend: spend,
+    Age: age,
+    Gender: gender,
+    Tenure: tenure,
+    Subscription_Type: sub,
+    Contract_Length: contract,
+    Usage_Frequency: usage,
+    Support_Calls: calls,
+    Payment_Delay: delay,
+    Last_Interaction: lastInt
   };
 }
 
@@ -258,9 +285,30 @@ export const api = {
     const q = new URLSearchParams();
     if (params?.page) q.set('page', params.page.toString());
     if (params?.risk_filter) q.set('risk_filter', params.risk_filter);
+    if (params?.contract_filter) q.set('contract_filter', params.contract_filter);
+    if (params?.search) q.set('search', params.search);
+    if (params?.high_value_high_risk) q.set('high_value_high_risk', 'true');
     return fetchJSON<CustomerQueueResponse>(`/customers?${q.toString()}`);
   },
-  getCustomerById: (id: number) => fetchJSON<{ raw_attributes: any; intelligence: PredictionResult }>(`/customers/${id}`),
+  getCustomerById: (id: number) => {
+    const found = SAMPLE_CUSTOMER_POOL.find(c => c.customer_id === id) || generateSamplePrediction(id, 45, 'Female', 12, 6, 8, 22, 'Standard', 'Monthly', 720, 25);
+    return Promise.resolve({
+      raw_attributes: {
+        CustomerID: found.customer_id,
+        Age: found.Age || 45,
+        Gender: found.Gender || 'Female',
+        Tenure: found.Tenure || 12,
+        'Usage Frequency': found.Usage_Frequency || 6,
+        'Support Calls': found.Support_Calls || 8,
+        'Payment Delay': found.Payment_Delay || 22,
+        'Subscription Type': found.Subscription_Type || 'Standard',
+        'Contract Length': found.Contract_Length || 'Monthly',
+        'Total Spend': found.Total_Spend || 720,
+        'Last Interaction': found.Last_Interaction || 25
+      },
+      intelligence: found
+    });
+  },
   predictSingle: async (data: any) => {
     const delay = data['Payment Delay'] ?? data.Payment_Delay ?? 0;
     const calls = data['Support Calls'] ?? data.Support_Calls ?? 0;
@@ -270,8 +318,10 @@ export const api = {
     return generateSamplePrediction(data.CustomerID || 99999, data.Age || 42, data.Gender || 'Female', data.Tenure || 12, usage, calls, delay, data['Subscription Type'] || 'Standard', contract, spend, data['Last Interaction'] || 15);
   },
   batchPredictCSV: async (file: File) => {
-    const sample = generateSamplePrediction(10293, 45, 'Female', 12, 6, 8, 22, 'Standard', 'Monthly', 720, 25);
-    return { total_rows: 50, validation_summary: { is_valid: true }, scored_preview: [sample] };
+    const sample1 = generateSamplePrediction(10293, 45, 'Female', 12, 6, 8, 22, 'Standard', 'Monthly', 720, 25);
+    const sample2 = generateSamplePrediction(10482, 52, 'Male', 8, 4, 9, 25, 'Basic', 'Monthly', 890, 28);
+    const sample3 = generateSamplePrediction(15830, 29, 'Female', 36, 22, 1, 0, 'Standard', 'Annual', 980, 5);
+    return { total_rows: 50, validation_summary: { is_valid: true }, scored_preview: [sample1, sample2, sample3] };
   },
   getChurnAnalytics: () => fetchJSON<any>('/analytics/churn'),
   getModelPerformance: () => fetchJSON<ModelPerformanceResponse>('/model/performance'),
