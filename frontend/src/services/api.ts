@@ -321,15 +321,37 @@ export const api = {
     const sample1 = generateSamplePrediction(10293, 45, 'Female', 12, 6, 8, 22, 'Standard', 'Monthly', 720, 25);
     const sample2 = generateSamplePrediction(10482, 52, 'Male', 8, 4, 9, 25, 'Basic', 'Monthly', 890, 28);
     const sample3 = generateSamplePrediction(15830, 29, 'Female', 36, 22, 1, 0, 'Standard', 'Annual', 980, 5);
-    return { total_rows: 50, validation_summary: { is_valid: true }, scored_preview: [sample1, sample2, sample3] };
+
+    const formatRow = (s: PredictionResult) => ({
+      CustomerID: s.customer_id,
+      customer_id: s.customer_id,
+      'Churn Prediction': s.churn_prediction === 1 ? 'Likely to Churn' : 'Retained',
+      churn_prediction: s.churn_prediction,
+      'Churn Probability': s.churn_probability,
+      churn_probability: s.churn_probability,
+      'Risk Level': s.risk_level,
+      risk_level: s.risk_level,
+      'Priority': s.priority_label,
+      priority_label: s.priority_label,
+      'Primary Driver': s.primary_risk_driver,
+      primary_risk_driver: s.primary_risk_driver,
+      'Recommended Action': s.recommended_action,
+      recommended_action: s.recommended_action
+    });
+
+    return { 
+      total_rows: 50, 
+      validation_summary: { is_valid: true }, 
+      scored_preview: [formatRow(sample1), formatRow(sample2), formatRow(sample3)] 
+    };
   },
   getChurnAnalytics: () => fetchJSON<any>('/analytics/churn'),
   getModelPerformance: () => fetchJSON<ModelPerformanceResponse>('/model/performance'),
   getExplainability: () => fetchJSON<{ global_importance: any[]; methodology: string }>('/model/explainability'),
   retrainModel: async () => ({ status: 'success', message: 'Model retrained successfully!', details: { best_model: 'Random Forest' } }),
   getDataQuality: () => fetchJSON<DataQualitySummary>('/data-quality'),
-  recordRetentionOutcome: async () => ({ status: 'success', recorded_outcome_id: 101 }),
+  recordRetentionOutcome: async (payload?: any) => ({ status: 'success', recorded_outcome_id: 101 }),
   getRetentionOutcomes: async () => ([{ id: 1, customer_id: 10293, risk_level_at_intervention: 'HIGH', action_taken: 'Offered 15% annual plan discount', outcome: 'Retained', notes: 'Customer accepted annual offer.' }]),
   getSettings: () => fetchJSON<any>('/settings'),
-  updateSettings: async () => ({ status: 'updated' }),
+  updateSettings: async (settings?: any) => ({ status: 'updated' }),
 };

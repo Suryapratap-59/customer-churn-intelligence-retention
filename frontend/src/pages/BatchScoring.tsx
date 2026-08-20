@@ -36,8 +36,8 @@ export const BatchScoring: React.FC = () => {
   const handleDownloadResultsCSV = () => {
     if (!scoringResults?.scored_preview) return;
     const items = scoringResults.scored_preview;
-    const headers = Object.keys(items[0]);
-    const rows = items.map((item: any) => headers.map(h => `"${(item[h] || '').toString().replace(/"/g, '""')}"`).join(','));
+    const headers = ['CustomerID', 'Churn Prediction', 'Churn Probability', 'Risk Level', 'Priority', 'Primary Driver', 'Recommended Action'];
+    const rows = items.map((item: any) => headers.map(h => `"${(item[h] ?? '').toString().replace(/"/g, '""')}"`).join(','));
     const csvContent = [headers.join(','), ...rows].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
